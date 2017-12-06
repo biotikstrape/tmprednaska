@@ -1,0 +1,94 @@
+---
+title: "Sentiment"
+author: "Milan Straka"
+date: "6 decembra 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analýza pocitu
+
+
+Zdroj je kniha Tidy textmining with R <http://tidytextmining.com/sentiment.html>.
+
+Lexikón so slovami a ich sentimentami
+
+
+```{r sentiments}
+library(tidytext)
+sentiments
+```
+
+
+Slovník sentimentov
+
+```{r sentiments_afinn}
+get_sentiments("afinn")
+```
+
+
+Nacítame si novely Jane Austenr
+
+
+```{r message=F}
+library(janeaustenr,quietly = T)
+library(dplyr,quietly = T)
+library(stringr, quietly = T)
+```
+```{r}
+
+tidy_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(linenumber = row_number(),
+         chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]", 
+                                                 ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)
+```
+
+
+## Analýza sentimentov radosti
+
+
+Prienik slov v knihe Emma a slov ktoré predstavujú radost
+
+
+```{r pressure}
+nrcjoy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy")
+
+tidy_books %>%
+  filter(book == "Emma") %>%
+  inner_join(nrcjoy) %>%
+  count(word, sort = TRUE)
+```
+
+
+Spojíme slová v knihe s so slovníkom sentimentov a knihu rozdelíme na casti po 80 riadkoch a vypocítame sentiment
+
+
+```{r janeaust_sent}
+library(tidyr)
+
+janeaustensentiment <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, index = linenumber %/% 80, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+```
+
+
+Vizualizácia sentimentu v knihách
+
+
+```{r,fig.width=10}
+suppressWarnings(library(ggplot2))
+
+ggplot(janeaustensentiment, aes(index, sentiment, fill = book)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")
+```
+
